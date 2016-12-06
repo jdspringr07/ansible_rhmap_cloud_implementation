@@ -1,2 +1,3 @@
 mongo_image: rhmap42/mongodb
 mongo_version: latest
+rhn_pool: 8a85f9843e3d687a013e3ddd46dd07f1
