@@ -1,0 +1,72 @@
+---
+- name: Registering nodes with RHN for Red Hat Mobile
+  hosts: all
+  tasks:
+    - name: registration | Register machine with RHN
+      command: /usr/bin/subscription-manager register --username={{ rhn_user }} --password={{ rhn_password }}
+      tags:
+        - rhn
+      ignore_errors: yes
+
+    - name: registration | Get RH Mobile pool ID
+      shell: /usr/bin/subscription-manager list --all --available --matches="*Mobile*" | awk '/Pool ID/ {print $3}' | head -1
+      tags:
+        - rhn
+      register: pool_id
+      ignore_errors: yes
+
+    #Attaching the system to the right Pool
+    - name: registration | Attach machine with RH Mobile pool ID
+      command: /usr/bin/subscription-manager attach --pool={{ pool_id.stdout }}
+      tags:
+        - rhn
+      ignore_errors: yes
+
+- name: Configure REPO and SOFTWARE on Node/Infranode
+  hosts: node,infranode
+  tasks:
+    - name: install_software | Check to see if OPEN.REPO exists
+      stat:
+        path: /etc/yum.repos.d/open.repo
+      register: yum_repo
+
+    - name: install_software | Change OPEN.REPO to .BAK
+      command: mv /etc/yum.repos.d/open.repo /etc/yum.repos.d/open.repo.bak
+      when: yum_repo.stat.exists
+
+    - name: install_software | Enable correct repo for RH Mobile and install packages
+      yum:
+        disablerepo: "*"
+        enablerepo: "rhel-7-server-optional-rpms"
+        name: "subscription-manager-plugin-container"
+        state: latest
+
+    - name: install_software | Update certs
+      command: "usr/libexec/rhsmcertd-worker"
+
+    - name: install_software | Pull down Docker Image
+      docker_image:
+        name: "{{ mongo_image }}"
+        tag: "{{ mongo_version }}"
+
+- name: Configure REPO and SOFTWARE on masters
+  hosts: master
+  tasks:
+    - name: install_software | Check to see if OPEN.REPO exists
+      stat:
+        path: /etc/yum.repos.d/open.repo
+      register: yum_repo
+
+    - name: install_software | Change OPEN.REPO to .BAK
+      command: mv /etc/yum.repos.d/open.repo /etc/yum.repos.d/open.repo.bak
+      when: yum_repo.stat.exists
+
+    - name: install_software | Enable correct repo for RH Mobile and install packages
+      yum:
+        disablerepo: "*"
+        enablerepo: "rhel-7-server-rhmap-4.2-rpms"
+        name: rhmap-fh-openshift-templates
+        state: latest
+
+    - name: install_software | Update certs
+      command: "usr/libexec/rhsmcertd-worker"
