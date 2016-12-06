@@ -1,0 +1,2 @@
+mongo_image: rhmap42/mongodb
+mongo_version: latest
